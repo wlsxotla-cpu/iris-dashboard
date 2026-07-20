@@ -1,25 +1,48 @@
-# iris-dashboard
+# iris-monitor
 
-iris-monitor-v2 리포지토리가 매일 만들어두는 공고 목록(results/latest.json)을
-Streamlit으로 보여주는 대시보드입니다.
+IRIS(범부처통합연구지원시스템) 사업공고 페이지를 매일 자동으로 확인해서
+지정한 소관부처의 "접수예정" / "접수중" 공고 목록을 `results/latest.md`
+파일로 저장하는 자동화 스크립트입니다.
 
-이 앱은 IRIS 사이트에 직접 접속하지 않고 GitHub에 저장된 결과 파일만
-읽어오기 때문에, Streamlit Cloud에 배포해도 IRIS 쪽 IP 차단 문제가 생기지
-않습니다.
+조회 대상 페이지:
+https://www.iris.go.kr/contents/retrieveBsnsAncmBtinSituListView.do
 
-## 배포 방법 (Streamlit Cloud)
+## 동작 방식
 
-1. https://share.streamlit.io 접속 후 GitHub 계정으로 로그인
-2. "Create app" 클릭
-3. Repository: 이 리포지토리 선택
-4. Branch: main
-5. Main file path: app.py
-6. Deploy 클릭
+1. GitHub Actions가 평일 아침 9시(KST)에 자동 실행됩니다.
+2. Playwright(헤드리스 브라우저)로 IRIS 사이트에 접속해 지정한 부처만
+   체크하고, 접수예정/접수중 탭의 공고 목록을 모두 읽어옵니다.
+3. 결과를 `results/latest.md`에 덮어쓰고, 변경이 있으면 그대로 커밋합니다.
+4. 이전 결과와 비교해서 "신규"만 걸러내는 기능은 없습니다 - 매번 현재
+   시점의 전체 목록을 그대로 보여줍니다.
 
-배포되면 발급되는 URL로 어디서든 접속해서 확인할 수 있습니다.
+## 조회 부처 관련 (변경됨)
 
-## 부처 필터를 바꾼 경우
+이제 스크래퍼는 부처를 필터링하지 않고 전체 부처의 공고를 다 가져옵니다.
+어떤 부처만 볼지는 스크래퍼가 아니라 별도의 Streamlit 대시보드
+(iris-dashboard)에서 사용자가 화면에서 직접 선택합니다.
 
-iris-monitor-v2 쪽 scraper.py의 DEPARTMENTS 목록을 바꾸면, 이 대시보드는
-따로 수정할 필요 없이 다음 갱신 때부터 자동으로 새 부처 기준 데이터를
-보여줍니다.
+## 첨부파일 링크
+
+각 공고의 상세페이지 링크와 첨부파일 링크도 함께 수집해서
+results/latest.json 에 저장합니다. 대시보드에서 공고명과 첨부파일을
+클릭하면 바로 열어볼 수 있습니다.
+
+## 수동 실행
+
+GitHub 리포지토리 상단 Actions 탭 → "IRIS 공고 스크래핑" 워크플로우 →
+"Run workflow" 버튼으로 즉시 실행해서 바로 확인할 수도 있습니다.
+
+## 알려진 한계 / 1차 버전 안내
+
+이 스크립트는 IRIS 사이트의 실제 동작(체크박스, 탭, 페이지네이션의
+정확한 HTML 구조)을 직접 눈으로 확인하지 못한 상태에서 작성한 1차
+버전입니다. 처음 Actions를 돌렸을 때 아래처럼 오류가 나거나 결과가
+비어 있을 수 있습니다.
+
+- 부처 체크박스를 못 찾음
+- 탭 전환이 안 됨
+- 목록이 비정상적으로 파싱됨
+
+이런 경우 Actions 실행 로그의 오류 메시지(`[warn] ...` 부분)를 그대로
+복사해서 공유해주시면 선택자를 수정해드리겠습니다.
