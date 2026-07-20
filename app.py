@@ -62,23 +62,24 @@ if keyword:
 
 st.write(f"총 {len(filtered)}건")
 
-display_cols = ["tab", "org", "agency", "title", "ancm_no", "ancm_date", "status", "type"]
-display_names = {
-    "tab": "구분",
-    "org": "부처",
-    "agency": "전문기관",
-    "title": "공고명",
-    "ancm_no": "공고번호",
-    "ancm_date": "공고일자",
-    "status": "상태",
-    "type": "공모유형",
-}
+for _, row in filtered.iterrows():
+    title = row["title"]
+    detail_url = row.get("detail_url")
+    header = f"[{title}]({detail_url})" if detail_url else title
 
-st.dataframe(
-    filtered[display_cols].rename(columns=display_names),
-    use_container_width=True,
-    hide_index=True,
-)
+    with st.container(border=True):
+        st.markdown(f"**{header}**")
+        st.caption(
+            f"{row['tab']} · {row['org']} > {row['agency']} · "
+            f"공고번호 {row['ancm_no']} · {row['ancm_date']} · "
+            f"{row['status']} / {row['type']}"
+        )
+        attachments = row.get("attachments") or []
+        if attachments:
+            att_lines = " · ".join(
+                f"[{a.get('name') or '첨부파일'}]({a.get('url')})" for a in attachments
+            )
+            st.markdown(f"첨부파일: {att_lines}")
 
 if st.button("새로고침"):
     st.cache_data.clear()
