@@ -34,10 +34,7 @@ except Exception as e:
     st.error(f"데이터를 불러오지 못했습니다: {e}")
     st.stop()
 
-st.caption(
-    f"마지막 갱신: {data.get('updated_at', '알 수 없음')}  ·  "
-    f"필터 부처: {', '.join(data.get('departments', []))}"
-)
+st.caption(f"마지막 갱신: {data.get('updated_at', '알 수 없음')}")
 
 items = data.get("items", [])
 if not items:
@@ -62,24 +59,49 @@ if keyword:
 
 st.write(f"총 {len(filtered)}건")
 
-for _, row in filtered.iterrows():
+DETAIL_URL = "https://www.iris.go.kr/contents/retrieveBsnsAncmView.do"
+
+# IRIS 목록 페이지가 실제로 쓰는 폼 필드 (ancmId/ancmPrg만 채우고 나머지는 비워둔다)
+FORM_FIELDS = [
+    "bizSearch", "bsnsTl", "ancmPrg", "pageIndex", "ancmId", "ancmNo",
+    "ancmTurn", "seq", "hirkSorgnBsnsCd", "bsnsAncmTap", "shSorgnYyBsnsCd",
+    "sorgnIdArr", "ancmSttArr", "pbofrTpArr", "qualCndtArr", "blngGovdSeArr",
+    "techFildArr", "shBsnsYy",
+]
+
+
+def detail_button_html(ancm_id, ancm_prg, key):
+    if not ancm_id or not ancm_prg:
+        return ""
+    hidden_inputs = "".join(
+        f'<input type="hidden" name="{f}" value="{ancm_prg if f == "ancmPrg" else (ancm_id if f == "ancmId" else "")}">'
+        for f in FORM_FIELDS
+    )
+    return f"""
+    <form action="{DETAIL_URL}" method="post" target="_blank" style="display:inline;margin:0;">
+        {hidden_inputs}
+        <button type="submit" style="
+            padding:4px 10px;border-radius:6px;border:1px solid #d0d0d0;
+            background:#f5f5f5;cursor:pointer;font-size:0.85rem;">
+            상세보기 ↗
+        </button>
+    </form>
+    """
+
+
+for idx, row in filtered.iterrows():
     title = row["title"]
-    detail_url = row.get("detail_url")
-    header = f"[{title}]({detail_url})" if detail_url else title
 
     with st.container(border=True):
-        st.markdown(f"**{header}**")
+        st.markdown(f"**{title}**")
         st.caption(
             f"{row['tab']} · {row['org']} > {row['agency']} · "
             f"공고번호 {row['ancm_no']} · {row['ancm_date']} · "
             f"{row['status']} / {row['type']}"
         )
-        attachments = row.get("attachments") or []
-        if attachments:
-            att_lines = " · ".join(
-                f"[{a.get('name') or '첨부파일'}]({a.get('url')})" for a in attachments
-            )
-            st.markdown(f"첨부파일: {att_lines}")
+        html = detail_button_html(row.get("ancm_id"), row.get("ancm_prg"), idx)
+        if html:
+            st.markdown(html, unsafe_allow_html=True)
 
 if st.button("새로고침"):
     st.cache_data.clear()
