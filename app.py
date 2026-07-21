@@ -89,19 +89,23 @@ def detail_button_html(ancm_id, ancm_prg, key):
     """
 
 
-for idx, row in filtered.iterrows():
-    title = row["title"]
+for org in sorted(filtered["org"].unique()):
+    org_items = filtered[filtered["org"] == org]
+    st.subheader(f"{org} ({len(org_items)}건)")
 
-    with st.container(border=True):
-        st.markdown(f"**{title}**")
-        st.caption(
-            f"{row['tab']} · {row['org']} > {row['agency']} · "
-            f"공고번호 {row['ancm_no']} · {row['ancm_date']} · "
-            f"{row['status']} / {row['type']}"
-        )
-        html = detail_button_html(row.get("ancm_id"), row.get("ancm_prg"), idx)
-        if html:
-            st.markdown(html, unsafe_allow_html=True)
+    for idx, row in org_items.iterrows():
+        title = row["title"]
+
+        with st.container(border=True):
+            st.markdown(f"**{title}**")
+            st.caption(
+                f"{row['tab']} · {row['agency']} · "
+                f"공고번호 {row['ancm_no']} · {row['ancm_date']} · "
+                f"{row['status']} / {row['type']}"
+            )
+            html = detail_button_html(row.get("ancm_id"), row.get("ancm_prg"), idx)
+            if html:
+                st.markdown(html, unsafe_allow_html=True)
 
 if st.button("새로고침"):
     st.cache_data.clear()
