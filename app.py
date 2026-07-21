@@ -11,6 +11,24 @@ import pandas as pd
 import requests
 import streamlit as st
 
+
+ORG_COLORS = [
+    "#2c5aa0", "#c0392b", "#1e8449", "#8e44ad", "#d35400",
+    "#16a085", "#b7950b", "#2874a6", "#943126", "#117864",
+    "#6c3483", "#af601a", "#212f3d", "#7d6608", "#0e6251",
+]
+
+
+def color_for_org(org_label: str) -> str:
+    idx = sum(ord(c) for c in org_label) % len(ORG_COLORS)
+    return ORG_COLORS[idx]
+
+
+def _html(s: str) -> str:
+    """각 줄의 앞뒤 공백을 제거해서, 마크다운이 들여쓰기를 코드블럭으로
+    오인하지 않도록 한다 (중첩된 HTML을 삽입해도 안전하게 동작)."""
+    return "\n".join(line.strip() for line in s.strip("\n").split("\n"))
+
 RAW_JSON_URL = (
     "https://raw.githubusercontent.com/wlsxotla-cpu/iris-monitor-v2/main/results/latest.json"
 )
@@ -27,42 +45,43 @@ FORM_FIELDS = [
 st.set_page_config(page_title="IRIS 공고 현황", layout="wide")
 
 st.markdown(
-    """
-    <style>
-    .org-header {
-        background: #2c5aa0;
-        color: white;
-        padding: 10px 16px;
-        border-radius: 8px 8px 0 0;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-weight: 600;
-        font-size: 1.05rem;
-        margin-top: 18px;
-    }
-    .org-header .count {
-        background: rgba(255,255,255,0.25);
-        padding: 2px 10px;
-        border-radius: 999px;
-        font-size: 0.85rem;
-    }
-    .tab-count {
-        color: #666;
-        font-size: 0.85rem;
-        margin: 4px 0 10px 0;
-    }
-    .ancm-card {
-        border: 1px solid #e5e5e5;
-        border-top: none;
-        border-radius: 0 0 8px 8px;
-        padding: 12px 16px;
-        margin-bottom: 2px;
-    }
-    .ancm-title { font-weight: 600; margin-bottom: 4px; }
-    .ancm-meta { color: #777; font-size: 0.85rem; margin-bottom: 8px; }
-    </style>
-    """,
+    _html(
+        """
+        <style>
+        .org-header {
+            color: white;
+            padding: 10px 16px;
+            border-radius: 8px 8px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 1.05rem;
+            margin-top: 18px;
+        }
+        .org-header .count {
+            background: rgba(255,255,255,0.25);
+            padding: 2px 10px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+        }
+        .tab-count {
+            color: #666;
+            font-size: 0.85rem;
+            margin: 4px 0 10px 0;
+        }
+        .ancm-card {
+            border: 1px solid #e5e5e5;
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            padding: 12px 16px;
+            margin-bottom: 2px;
+        }
+        .ancm-title { font-weight: 600; margin-bottom: 4px; }
+        .ancm-meta { color: #777; font-size: 0.85rem; margin-bottom: 8px; }
+        </style>
+        """
+    ),
     unsafe_allow_html=True,
 )
 
@@ -139,16 +158,16 @@ def detail_button_html(ancm_id, ancm_prg):
         f'<input type="hidden" name="{f}" value="{ancm_prg if f == "ancmPrg" else (ancm_id if f == "ancmId" else "")}">'
         for f in FORM_FIELDS
     )
-    return f"""
-    <form action="{DETAIL_URL}" method="post" target="_blank" style="display:inline;margin:0;">
+    return _html(
+        f"""
+        <form action="{DETAIL_URL}" method="post" target="_blank" style="display:inline;margin:0;">
         {hidden_inputs}
-        <button type="submit" style="
-            padding:4px 10px;border-radius:6px;border:1px solid #2c5aa0;
-            background:white;color:#2c5aa0;cursor:pointer;font-size:0.85rem;">
-            🔗 IRIS에서 보기
+        <button type="submit" style="padding:4px 10px;border-radius:6px;border:1px solid #2c5aa0;background:white;color:#2c5aa0;cursor:pointer;font-size:0.85rem;">
+        🔗 IRIS에서 보기
         </button>
-    </form>
-    """
+        </form>
+        """
+    )
 
 
 for org_label in sorted(filtered["org_label"].unique(), key=lambda x: (x == "부처 미표시", x)):
@@ -157,14 +176,17 @@ for org_label in sorted(filtered["org_label"].unique(), key=lambda x: (x == "부
     tab_counts = org_items["tab"].value_counts()
     tab_summary = "  ·  ".join(f"{t} {c}건" for t, c in tab_counts.items())
 
+    color = color_for_org(org_label)
     st.markdown(
-        f"""
-        <div class="org-header">
+        _html(
+            f"""
+            <div class="org-header" style="background:{color};">
             <span>{org_label}</span>
             <span class="count">{len(org_items)}건</span>
-        </div>
-        <div class="tab-count">{tab_summary}</div>
-        """,
+            </div>
+            <div class="tab-count">{tab_summary}</div>
+            """
+        ),
         unsafe_allow_html=True,
     )
 
@@ -173,16 +195,18 @@ for org_label in sorted(filtered["org_label"].unique(), key=lambda x: (x == "부
         with cols[i % 3]:
             html_button = detail_button_html(row.get("ancm_id"), row.get("ancm_prg"))
             st.markdown(
-                f"""
-                <div class="ancm-card">
+                _html(
+                    f"""
+                    <div class="ancm-card">
                     <div class="ancm-title">{row['title']}</div>
                     <div class="ancm-meta">
-                        {row['tab']} · {row['agency']}<br>
-                        공고번호 {row['ancm_no']}<br>
-                        {row['ancm_date']} · {row['status']} / {row['type']}
+                    {row['tab']} · {row['agency']}<br>
+                    공고번호 {row['ancm_no']}<br>
+                    {row['ancm_date']} · {row['status']} / {row['type']}
                     </div>
                     {html_button}
-                </div>
-                """,
+                    </div>
+                    """
+                ),
                 unsafe_allow_html=True,
             )
