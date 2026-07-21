@@ -93,13 +93,29 @@ df["org_label"] = df["org"].apply(lambda o: o if o else "부처 미표시")
 with st.sidebar:
     st.header("⚙️ 설정")
     tab_options = sorted(df["tab"].unique())
-    selected_tabs = st.multiselect("탭", tab_options, default=tab_options)
-
     org_options = sorted(df["org_label"].unique())
-    selected_orgs = st.multiselect("소관부처", org_options, default=org_options)
 
-    keyword = st.text_input("제목 검색")
+    qp = st.query_params
+    saved_tabs = [t for t in qp.get("tabs", "").split(",") if t in tab_options]
+    saved_orgs = [o for o in qp.get("orgs", "").split(",") if o in org_options]
 
+    selected_tabs = st.multiselect(
+        "탭", tab_options, default=saved_tabs or tab_options
+    )
+    selected_orgs = st.multiselect(
+        "소관부처", org_options, default=saved_orgs or org_options
+    )
+    keyword = st.text_input("제목 검색", value=qp.get("kw", ""))
+
+    # 선택값을 URL에 반영 (다음에 이 URL로 들어오면 그대로 복원됨)
+    st.query_params["tabs"] = ",".join(selected_tabs)
+    st.query_params["orgs"] = ",".join(selected_orgs)
+    if keyword:
+        st.query_params["kw"] = keyword
+    elif "kw" in st.query_params:
+        del st.query_params["kw"]
+
+    st.caption("💡 지금 이 필터 상태로 주소창 URL을 즐겨찾기 해두면 다음에도 그대로 열립니다.")
     st.caption(f"마지막 갱신: {data.get('updated_at', '알 수 없음')}")
     if st.button("🔄 새로고침"):
         st.cache_data.clear()
