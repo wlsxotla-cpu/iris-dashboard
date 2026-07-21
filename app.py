@@ -2,7 +2,7 @@
 IRIS 공고 현황 대시보드 (Streamlit)
 
 GitHub의 wlsxotla-cpu/iris-monitor-v2 리포지토리에서 GitHub Actions가
-매일 만들어두는 results/latest.json 을 읽어서 표로 보여준다.
+매일 만들어두는 results/latest.json 을 읽어서 카드 형태로 보여준다.
 이 앱 자체는 IRIS 사이트에 접속하지 않으므로, 예전처럼 Streamlit Cloud가
 IRIS 쪽에서 IP 차단을 당하는 문제가 생기지 않는다.
 """
@@ -11,14 +11,62 @@ import pandas as pd
 import requests
 import streamlit as st
 
-# 실제 리포지토리 경로에 맞게 필요하면 수정
 RAW_JSON_URL = (
     "https://raw.githubusercontent.com/wlsxotla-cpu/iris-monitor-v2/main/results/latest.json"
 )
 
+DETAIL_URL = "https://www.iris.go.kr/contents/retrieveBsnsAncmView.do"
+
+FORM_FIELDS = [
+    "bizSearch", "bsnsTl", "ancmPrg", "pageIndex", "ancmId", "ancmNo",
+    "ancmTurn", "seq", "hirkSorgnBsnsCd", "bsnsAncmTap", "shSorgnYyBsnsCd",
+    "sorgnIdArr", "ancmSttArr", "pbofrTpArr", "qualCndtArr", "blngGovdSeArr",
+    "techFildArr", "shBsnsYy",
+]
+
 st.set_page_config(page_title="IRIS 공고 현황", layout="wide")
 
-st.title("IRIS 공고 현황")
+st.markdown(
+    """
+    <style>
+    .org-header {
+        background: #2c5aa0;
+        color: white;
+        padding: 10px 16px;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        font-size: 1.05rem;
+        margin-top: 18px;
+    }
+    .org-header .count {
+        background: rgba(255,255,255,0.25);
+        padding: 2px 10px;
+        border-radius: 999px;
+        font-size: 0.85rem;
+    }
+    .tab-count {
+        color: #666;
+        font-size: 0.85rem;
+        margin: 4px 0 10px 0;
+    }
+    .ancm-card {
+        border: 1px solid #e5e5e5;
+        border-top: none;
+        border-radius: 0 0 8px 8px;
+        padding: 12px 16px;
+        margin-bottom: 2px;
+    }
+    .ancm-title { font-weight: 600; margin-bottom: 4px; }
+    .ancm-meta { color: #777; font-size: 0.85rem; margin-bottom: 8px; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.title("📋 IRIS 공고 현황")
 
 
 @st.cache_data(ttl=300)
@@ -34,43 +82,37 @@ except Exception as e:
     st.error(f"데이터를 불러오지 못했습니다: {e}")
     st.stop()
 
-st.caption(f"마지막 갱신: {data.get('updated_at', '알 수 없음')}")
-
 items = data.get("items", [])
 if not items:
     st.info("현재 조회된 공고가 없습니다.")
     st.stop()
 
 df = pd.DataFrame(items)
+df["org_label"] = df["org"].apply(lambda o: o if o else "부처 미표시")
 
-col1, col2, col3 = st.columns(3)
-with col1:
+with st.sidebar:
+    st.header("⚙️ 설정")
     tab_options = sorted(df["tab"].unique())
     selected_tabs = st.multiselect("탭", tab_options, default=tab_options)
-with col2:
-    org_options = sorted(df["org"].unique())
+
+    org_options = sorted(df["org_label"].unique())
     selected_orgs = st.multiselect("소관부처", org_options, default=org_options)
-with col3:
+
     keyword = st.text_input("제목 검색")
 
-filtered = df[df["tab"].isin(selected_tabs) & df["org"].isin(selected_orgs)]
+    st.caption(f"마지막 갱신: {data.get('updated_at', '알 수 없음')}")
+    if st.button("🔄 새로고침"):
+        st.cache_data.clear()
+        st.rerun()
+
+filtered = df[df["tab"].isin(selected_tabs) & df["org_label"].isin(selected_orgs)]
 if keyword:
     filtered = filtered[filtered["title"].str.contains(keyword, case=False, na=False)]
 
-st.write(f"총 {len(filtered)}건")
-
-DETAIL_URL = "https://www.iris.go.kr/contents/retrieveBsnsAncmView.do"
-
-# IRIS 목록 페이지가 실제로 쓰는 폼 필드 (ancmId/ancmPrg만 채우고 나머지는 비워둔다)
-FORM_FIELDS = [
-    "bizSearch", "bsnsTl", "ancmPrg", "pageIndex", "ancmId", "ancmNo",
-    "ancmTurn", "seq", "hirkSorgnBsnsCd", "bsnsAncmTap", "shSorgnYyBsnsCd",
-    "sorgnIdArr", "ancmSttArr", "pbofrTpArr", "qualCndtArr", "blngGovdSeArr",
-    "techFildArr", "shBsnsYy",
-]
+st.write(f"총 **{len(filtered)}**건")
 
 
-def detail_button_html(ancm_id, ancm_prg, key):
+def detail_button_html(ancm_id, ancm_prg):
     if not ancm_id or not ancm_prg:
         return ""
     hidden_inputs = "".join(
@@ -81,32 +123,46 @@ def detail_button_html(ancm_id, ancm_prg, key):
     <form action="{DETAIL_URL}" method="post" target="_blank" style="display:inline;margin:0;">
         {hidden_inputs}
         <button type="submit" style="
-            padding:4px 10px;border-radius:6px;border:1px solid #d0d0d0;
-            background:#f5f5f5;cursor:pointer;font-size:0.85rem;">
-            상세보기 ↗
+            padding:4px 10px;border-radius:6px;border:1px solid #2c5aa0;
+            background:white;color:#2c5aa0;cursor:pointer;font-size:0.85rem;">
+            🔗 IRIS에서 보기
         </button>
     </form>
     """
 
 
-for org in sorted(filtered["org"].unique()):
-    org_items = filtered[filtered["org"] == org]
-    st.subheader(f"{org} ({len(org_items)}건)")
+for org_label in sorted(filtered["org_label"].unique(), key=lambda x: (x == "부처 미표시", x)):
+    org_items = filtered[filtered["org_label"] == org_label]
 
-    for idx, row in org_items.iterrows():
-        title = row["title"]
+    tab_counts = org_items["tab"].value_counts()
+    tab_summary = "  ·  ".join(f"{t} {c}건" for t, c in tab_counts.items())
 
-        with st.container(border=True):
-            st.markdown(f"**{title}**")
-            st.caption(
-                f"{row['tab']} · {row['agency']} · "
-                f"공고번호 {row['ancm_no']} · {row['ancm_date']} · "
-                f"{row['status']} / {row['type']}"
+    st.markdown(
+        f"""
+        <div class="org-header">
+            <span>{org_label}</span>
+            <span class="count">{len(org_items)}건</span>
+        </div>
+        <div class="tab-count">{tab_summary}</div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    cols = st.columns(3)
+    for i, (_, row) in enumerate(org_items.iterrows()):
+        with cols[i % 3]:
+            html_button = detail_button_html(row.get("ancm_id"), row.get("ancm_prg"))
+            st.markdown(
+                f"""
+                <div class="ancm-card">
+                    <div class="ancm-title">{row['title']}</div>
+                    <div class="ancm-meta">
+                        {row['tab']} · {row['agency']}<br>
+                        공고번호 {row['ancm_no']}<br>
+                        {row['ancm_date']} · {row['status']} / {row['type']}
+                    </div>
+                    {html_button}
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
-            html = detail_button_html(row.get("ancm_id"), row.get("ancm_prg"), idx)
-            if html:
-                st.markdown(html, unsafe_allow_html=True)
-
-if st.button("새로고침"):
-    st.cache_data.clear()
-    st.rerun()
