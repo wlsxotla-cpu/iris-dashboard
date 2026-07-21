@@ -88,12 +88,16 @@ if not items:
     st.stop()
 
 df = pd.DataFrame(items)
-df["org_label"] = df["org"].apply(lambda o: o if o else "부처 미표시")
+df["org_list"] = df["org"].apply(
+    lambda o: [x.strip() for x in o.split(",") if x.strip()] if o else ["부처 미표시"]
+)
+# 콤마로 여러 부처가 같이 적힌 공동(다부처) 공고는, 관련된 부처 그룹 모두에 노출한다.
+exploded = df.explode("org_list").rename(columns={"org_list": "org_label"})
 
 with st.sidebar:
     st.header("⚙️ 설정")
-    tab_options = sorted(df["tab"].unique())
-    org_options = sorted(df["org_label"].unique())
+    tab_options = sorted(exploded["tab"].unique())
+    org_options = sorted(exploded["org_label"].unique())
 
     qp = st.query_params
     saved_tabs = [t for t in qp.get("tabs", "").split(",") if t in tab_options]
@@ -121,11 +125,11 @@ with st.sidebar:
         st.cache_data.clear()
         st.rerun()
 
-filtered = df[df["tab"].isin(selected_tabs) & df["org_label"].isin(selected_orgs)]
+filtered = exploded[exploded["tab"].isin(selected_tabs) & exploded["org_label"].isin(selected_orgs)]
 if keyword:
     filtered = filtered[filtered["title"].str.contains(keyword, case=False, na=False)]
 
-st.write(f"총 **{len(filtered)}**건")
+st.write(f"총 **{filtered['title'].nunique()}**건 (공동부처 공고는 관련 부처 모두에 표시됩니다)")
 
 
 def detail_button_html(ancm_id, ancm_prg):
