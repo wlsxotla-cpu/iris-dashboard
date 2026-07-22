@@ -123,12 +123,39 @@ with st.sidebar:
     saved_tabs = [t for t in qp.get("tabs", "").split(",") if t in tab_options]
     saved_orgs = [o for o in qp.get("orgs", "").split(",") if o in org_options]
 
+    if "sel_tabs" not in st.session_state:
+        st.session_state.sel_tabs = saved_tabs or tab_options
+    if "sel_orgs" not in st.session_state:
+        st.session_state.sel_orgs = saved_orgs or org_options
+
+    st.caption("탭")
+    c1, c2 = st.columns(2)
+    with c1:
+        if st.button("전체선택", key="tabs_all", use_container_width=True):
+            st.session_state.sel_tabs = tab_options
+            st.rerun()
+    with c2:
+        if st.button("전체해제", key="tabs_none", use_container_width=True):
+            st.session_state.sel_tabs = []
+            st.rerun()
     selected_tabs = st.multiselect(
-        "탭", tab_options, default=saved_tabs or tab_options
+        "탭", tab_options, key="sel_tabs", label_visibility="collapsed"
     )
+
+    st.caption("소관부처 (타이핑해서 검색 가능)")
+    c3, c4 = st.columns(2)
+    with c3:
+        if st.button("전체선택", key="orgs_all", use_container_width=True):
+            st.session_state.sel_orgs = org_options
+            st.rerun()
+    with c4:
+        if st.button("전체해제", key="orgs_none", use_container_width=True):
+            st.session_state.sel_orgs = []
+            st.rerun()
     selected_orgs = st.multiselect(
-        "소관부처", org_options, default=saved_orgs or org_options
+        "소관부처", org_options, key="sel_orgs", label_visibility="collapsed"
     )
+
     keyword = st.text_input("제목 검색", value=qp.get("kw", ""))
 
     # 선택값을 URL에 반영 (다음에 이 URL로 들어오면 그대로 복원됨)
