@@ -42,6 +42,33 @@ FORM_FIELDS = [
     "techFildArr", "shBsnsYy",
 ]
 
+GH_REPO = "wlsxotla-cpu/iris-monitor-v2"
+GH_WORKFLOW_FILE = "scrape.yml"
+
+
+def trigger_scrape():
+    token = st.secrets.get("GITHUB_TOKEN")
+    if not token:
+        return False, "GITHUB_TOKEN이 설정되어 있지 않습니다 (앱 Settings > Secrets에서 추가해주세요)."
+    url = f"https://api.github.com/repos/{GH_REPO}/actions/workflows/{GH_WORKFLOW_FILE}/dispatches"
+    try:
+        resp = requests.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+            },
+            json={"ref": "main"},
+            timeout=15,
+        )
+    except Exception as e:
+        return False, str(e)
+
+    if resp.status_code == 204:
+        return True, None
+    return False, f"{resp.status_code}: {resp.text[:200]}"
+
+
 st.set_page_config(page_title="IRIS 공고 현황", layout="wide")
 
 st.markdown(
@@ -140,9 +167,19 @@ with st.sidebar:
 
     st.caption("💡 지금 이 필터 상태로 주소창 URL을 즐겨찾기 해두면 다음에도 그대로 열립니다.")
     st.caption(f"마지막 갱신: {data.get('updated_at', '알 수 없음')}")
-    if st.button("🔄 새로고침"):
-        st.cache_data.clear()
-        st.rerun()
+
+    col_a, col_b = st.columns(2)
+    with col_a:
+        if st.button("🔄 새로고침"):
+            st.cache_data.clear()
+            st.rerun()
+    with col_b:
+        if st.button("🚀 지금 수집"):
+            ok, err = trigger_scrape()
+            if ok:
+                st.success("수집 요청을 보냈습니다. 1~2분 후 새로고침 해주세요.")
+            else:
+                st.error(err)
 
 filtered = exploded[exploded["tab"].isin(selected_tabs) & exploded["org_label"].isin(selected_orgs)]
 if keyword:
