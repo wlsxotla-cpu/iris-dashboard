@@ -239,3 +239,6 @@ for org_label in sorted(filtered["org_label"].unique(), key=lambda x: (x == "부
                 ),
                 unsafe_allow_html=True,
             )
+
+st.divider()
+st.caption("KOTERI SJT")
