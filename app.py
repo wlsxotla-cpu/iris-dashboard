@@ -86,6 +86,7 @@ st.markdown(
 )
 
 st.title("📋 IRIS 공고 현황")
+st.caption("⏰ 매일 평일 오전 9시(KST) 기준으로 자동 업데이트됩니다.")
 
 
 @st.cache_data(ttl=300)
