@@ -7,6 +7,8 @@ GitHub의 wlsxotla-cpu/iris-monitor-v2 리포지토리에서 GitHub Actions가
 IRIS 쪽에서 IP 차단을 당하는 문제가 생기지 않는다.
 """
 
+from datetime import datetime, timedelta, timezone
+
 import pandas as pd
 import requests
 import streamlit as st
@@ -96,6 +98,24 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+def update_badge_html(updated_at_str: str) -> str:
+    KST = timezone(timedelta(hours=9))
+    try:
+        dt = datetime.strptime(updated_at_str.replace(" KST", ""), "%Y-%m-%d %H:%M")
+        today = datetime.now(KST).replace(tzinfo=None).date()
+        is_today = dt.date() == today
+        bg, color = ("#e6f6ec", "#14803c") if is_today else ("#fdecea", "#c0392b")
+        label = "🟢 오늘 갱신됨" if is_today else "🔴 갱신이 늦어지고 있어요"
+    except Exception:
+        bg, color, label = "#eee", "#555", "ℹ️"
+
+    return (
+        f'<div style="display:inline-block;background:{bg};color:{color};'
+        f'padding:6px 16px;border-radius:999px;font-weight:700;font-size:0.95rem;'
+        f'margin-bottom:12px;">{label} · 마지막 갱신 {updated_at_str}</div>'
+    )
+
+
 st.title("📋 IRIS 공고 현황")
 st.caption("⏰ 매일 평일 오전 9시(KST) 기준으로 자동 업데이트됩니다.")
 
@@ -112,6 +132,8 @@ try:
 except Exception as e:
     st.error(f"데이터를 불러오지 못했습니다: {e}")
     st.stop()
+
+st.markdown(update_badge_html(data.get("updated_at", "")), unsafe_allow_html=True)
 
 items = data.get("items", [])
 if not items:
