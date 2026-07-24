@@ -154,7 +154,16 @@ except Exception as e:
     st.stop()
 
 st.markdown(update_badge_html(data.get("updated_at", "")), unsafe_allow_html=True)
-st.caption("🆕 NEW 표시는 공고일자 기준 최근 7일 이내 등록된 공고입니다.")
+st.markdown(
+    _html(
+        """
+        <div style="display:inline-block;background:#ffe8e8;color:#c0392b;
+        padding:6px 16px;border-radius:999px;font-weight:700;font-size:0.95rem;
+        margin-bottom:12px;">🆕 NEW = 공고일자 기준 최근 7일 이내 등록된 공고</div>
+        """
+    ),
+    unsafe_allow_html=True,
+)
 
 items = data.get("items", [])
 if not items:
