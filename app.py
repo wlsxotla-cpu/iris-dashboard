@@ -159,7 +159,7 @@ st.markdown(
         """
         <div style="display:inline-block;background:#ffe8e8;color:#c0392b;
         padding:6px 16px;border-radius:999px;font-weight:700;font-size:0.95rem;
-        margin-bottom:12px;">🆕 NEW = 공고일자 기준 최근 7일 이내 등록된 공고</div>
+        margin-bottom:12px;">⭐ NEW = 공고일자 기준 최근 7일 이내 등록된 공고</div>
         """
     ),
     unsafe_allow_html=True,
@@ -287,7 +287,7 @@ for org_label in sorted(filtered["org_label"].unique(), key=lambda x: (x == "부
         with cols[i % 3]:
             html_button = detail_button_html(row.get("ancm_id"), row.get("ancm_prg"))
             tag_class = f"tag-{row['tab']}"
-            new_badge = '<span class="tag-new">🆕 NEW</span>' if is_new(row["ancm_date"]) else ""
+            new_badge = '<span class="tag-new">⭐ NEW</span>' if is_new(row["ancm_date"]) else ""
             st.markdown(
                 _html(
                     f"""
