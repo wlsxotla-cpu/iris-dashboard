@@ -7,6 +7,7 @@ GitHub의 wlsxotla-cpu/iris-monitor-v2 리포지토리에서 GitHub Actions가
 IRIS 쪽에서 IP 차단을 당하는 문제가 생기지 않는다.
 """
 
+import time
 from datetime import datetime, timedelta, timezone
 
 import pandas as pd
@@ -44,6 +45,57 @@ FORM_FIELDS = [
     "sorgnIdArr", "ancmSttArr", "pbofrTpArr", "qualCndtArr", "blngGovdSeArr",
     "techFildArr", "shBsnsYy",
 ]
+
+GH_REPO = "wlsxotla-cpu/iris-monitor-v2"
+GH_WORKFLOW_FILE = "scrape.yml"
+
+
+def trigger_scrape():
+    token = st.secrets.get("GITHUB_TOKEN")
+    if not token:
+        return False, "GITHUB_TOKEN이 설정되어 있지 않습니다 (앱 Settings > Secrets에서 추가해주세요)."
+    url = f"https://api.github.com/repos/{GH_REPO}/actions/workflows/{GH_WORKFLOW_FILE}/dispatches"
+    try:
+        resp = requests.post(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+            },
+            json={"ref": "main"},
+            timeout=15,
+        )
+    except Exception as e:
+        return False, str(e)
+
+    if resp.status_code == 204:
+        return True, None
+    return False, f"{resp.status_code}: {resp.text[:200]}"
+
+
+def get_latest_run(token, since_iso):
+    """방금 트리거한 실행을 찾는다 (since_iso 이후 생성된 것 중 가장 오래된 = 방금 만든 것)."""
+    url = f"https://api.github.com/repos/{GH_REPO}/actions/workflows/{GH_WORKFLOW_FILE}/runs"
+    try:
+        resp = requests.get(
+            url,
+            headers={
+                "Authorization": f"Bearer {token}",
+                "Accept": "application/vnd.github+json",
+            },
+            params={"event": "workflow_dispatch", "per_page": 5},
+            timeout=15,
+        )
+        resp.raise_for_status()
+    except Exception:
+        return None
+
+    runs = resp.json().get("workflow_runs", [])
+    candidates = [r for r in runs if r["created_at"] >= since_iso]
+    if candidates:
+        return candidates[-1]
+    return None
+
 
 st.set_page_config(page_title="IRIS 공고 현황", layout="wide")
 
@@ -235,6 +287,39 @@ with st.sidebar:
     if st.button("🔄 새로고침"):
         st.cache_data.clear()
         st.rerun()
+
+    if st.button("🚀 지금 수집"):
+        since = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        ok, err = trigger_scrape()
+        if not ok:
+            st.error(err)
+        else:
+            token = st.secrets.get("GITHUB_TOKEN")
+            with st.status("수집 요청을 보냈습니다...", expanded=True) as status:
+                time.sleep(5)  # Actions 목록에 새 실행이 잡힐 때까지 잠깐 대기
+                run = None
+                for attempt in range(30):  # 최대 약 2~3분 대기
+                    run = get_latest_run(token, since)
+                    if run and run["status"] == "completed":
+                        break
+                    status.write(f"진행 중... ({run['status'] if run else '실행 확인 중'})")
+                    time.sleep(5)
+
+                if run and run["status"] == "completed":
+                    if run["conclusion"] == "success":
+                        status.update(label="✅ 수집 완료! 목록을 새로고침합니다.", state="complete")
+                        st.cache_data.clear()
+                    else:
+                        status.update(
+                            label=f"❌ 수집 실패 ({run['conclusion']}) - Actions 로그를 확인해주세요",
+                            state="error",
+                        )
+                else:
+                    status.update(
+                        label="⏱️ 시간이 오래 걸리고 있습니다 - Actions 탭에서 직접 확인해주세요",
+                        state="error",
+                    )
+            st.rerun()
 
 filtered = exploded[exploded["tab"].isin(selected_tabs) & exploded["org_label"].isin(selected_orgs)]
 if keyword:
