@@ -92,6 +92,16 @@ st.markdown(
         }
         .tag-접수예정 { background: #e8f0fe; color: #1a56b0; }
         .tag-접수중 { background: #e6f6ec; color: #14803c; }
+        .tag-new {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.78rem;
+            font-weight: 700;
+            margin-right: 4px;
+            background: #ffe8e8;
+            color: #c0392b;
+        }
         </style>
         """
     ),
@@ -116,6 +126,16 @@ def update_badge_html(updated_at_str: str) -> str:
     )
 
 
+def is_new(ancm_date_str: str, days: int = 7) -> bool:
+    KST = timezone(timedelta(hours=9))
+    try:
+        d = datetime.strptime(ancm_date_str, "%Y-%m-%d").date()
+        today = datetime.now(KST).replace(tzinfo=None).date()
+        return (today - d).days <= days
+    except Exception:
+        return False
+
+
 st.title("📋 IRIS 공고 현황")
 st.caption("⏰ 매일 새벽 6시경(KST) 기준으로 자동 업데이트됩니다.")
 
@@ -134,6 +154,7 @@ except Exception as e:
     st.stop()
 
 st.markdown(update_badge_html(data.get("updated_at", "")), unsafe_allow_html=True)
+st.caption("🆕 NEW 표시는 공고일자 기준 최근 7일 이내 등록된 공고입니다.")
 
 items = data.get("items", [])
 if not items:
@@ -257,11 +278,12 @@ for org_label in sorted(filtered["org_label"].unique(), key=lambda x: (x == "부
         with cols[i % 3]:
             html_button = detail_button_html(row.get("ancm_id"), row.get("ancm_prg"))
             tag_class = f"tag-{row['tab']}"
+            new_badge = '<span class="tag-new">🆕 NEW</span>' if is_new(row["ancm_date"]) else ""
             st.markdown(
                 _html(
                     f"""
                     <div class="ancm-card">
-                    <div class="ancm-title">{row['title']}</div>
+                    <div class="ancm-title">{new_badge}{row['title']}</div>
                     <div class="ancm-meta">
                     <span class="tag {tag_class}">{row['tab']}</span> {row['agency']}<br>
                     공고번호 {row['ancm_no']}<br>
